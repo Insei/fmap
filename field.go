@@ -36,6 +36,16 @@ func (f Field) Get(obj interface{}) interface{} {
 			return getPtrValue[*int32](ptrToField)
 		case reflect.Int64:
 			return getPtrValue[*int64](ptrToField)
+		case reflect.Uint:
+			return getPtrValue[*uint](ptrToField)
+		case reflect.Uint8:
+			return getPtrValue[*uint8](ptrToField)
+		case reflect.Uint16:
+			return getPtrValue[*uint16](ptrToField)
+		case reflect.Uint32:
+			return getPtrValue[*uint32](ptrToField)
+		case reflect.Uint64:
+			return getPtrValue[*uint64](ptrToField)
 		case reflect.Float32:
 			return getPtrValue[*float32](ptrToField)
 		case reflect.Float64:
@@ -65,6 +75,16 @@ func (f Field) Get(obj interface{}) interface{} {
 			return getPtrValue[int32](ptrToField)
 		case reflect.Int64:
 			return getPtrValue[int64](ptrToField)
+		case reflect.Uint:
+			return getPtrValue[uint](ptrToField)
+		case reflect.Uint8:
+			return getPtrValue[uint8](ptrToField)
+		case reflect.Uint16:
+			return getPtrValue[uint16](ptrToField)
+		case reflect.Uint32:
+			return getPtrValue[uint32](ptrToField)
+		case reflect.Uint64:
+			return getPtrValue[uint64](ptrToField)
 		case reflect.Float32:
 			return getPtrValue[float32](ptrToField)
 		case reflect.Float64:
@@ -132,6 +152,16 @@ func (f Field) Set(obj interface{}, val interface{}) {
 			setPtrValue[*int32](ptrToField, val)
 		case reflect.Int64:
 			setPtrValue[*int64](ptrToField, val)
+		case reflect.Uint:
+			setPtrValue[*uint](ptrToField, val)
+		case reflect.Uint8:
+			setPtrValue[*uint8](ptrToField, val)
+		case reflect.Uint16:
+			setPtrValue[*uint16](ptrToField, val)
+		case reflect.Uint32:
+			setPtrValue[*uint32](ptrToField, val)
+		case reflect.Uint64:
+			setPtrValue[*uint64](ptrToField, val)
 		case reflect.Float32:
 			setPtrValue[*float32](ptrToField, val)
 		case reflect.Float64:
@@ -158,6 +188,16 @@ func (f Field) Set(obj interface{}, val interface{}) {
 			setPtrValue[int32](ptrToField, val)
 		case reflect.Int64:
 			setPtrValue[int64](ptrToField, val)
+		case reflect.Uint:
+			setPtrValue[uint](ptrToField, val)
+		case reflect.Uint8:
+			setPtrValue[uint8](ptrToField, val)
+		case reflect.Uint16:
+			setPtrValue[uint16](ptrToField, val)
+		case reflect.Uint32:
+			setPtrValue[uint32](ptrToField, val)
+		case reflect.Uint64:
+			setPtrValue[uint64](ptrToField, val)
 		case reflect.Float32:
 			setPtrValue[float32](ptrToField, val)
 		case reflect.Float64:

@@ -19,6 +19,11 @@ type TestStruct struct {
 	Int16        int16
 	Int32        int32
 	Int64        int64
+	Uint         uint
+	Uint8        uint8
+	Uint16       uint16
+	Uint32       uint32
+	Uint64       uint64
 	Float32      float32
 	Float64      float64
 	Bool         bool
@@ -31,6 +36,11 @@ type TestStruct struct {
 	PtrInt16     *int16
 	PtrInt32     *int32
 	PtrInt64     *int64
+	PtrUint      *uint
+	PtrUint8     *uint8
+	PtrUint16    *uint16
+	PtrUint32    *uint32
+	PtrUint64    *uint64
 	PtrFloat32   *float32
 	PtrFloat64   *float64
 	PtrBool      *bool
@@ -47,6 +57,11 @@ func TestGetFrom(t *testing.T) {
 		assert.Contains(t, fieldMap, "Int16")
 		assert.Contains(t, fieldMap, "Int32")
 		assert.Contains(t, fieldMap, "Int64")
+		assert.Contains(t, fieldMap, "Uint")
+		assert.Contains(t, fieldMap, "Uint8")
+		assert.Contains(t, fieldMap, "Uint16")
+		assert.Contains(t, fieldMap, "Uint32")
+		assert.Contains(t, fieldMap, "Uint64")
 		assert.Contains(t, fieldMap, "Float32")
 		assert.Contains(t, fieldMap, "Float64")
 		assert.Contains(t, fieldMap, "Bool")
@@ -56,6 +71,11 @@ func TestGetFrom(t *testing.T) {
 		assert.Contains(t, fieldMap, "PtrInt16")
 		assert.Contains(t, fieldMap, "PtrInt32")
 		assert.Contains(t, fieldMap, "PtrInt64")
+		assert.Contains(t, fieldMap, "PtrUint")
+		assert.Contains(t, fieldMap, "PtrUint8")
+		assert.Contains(t, fieldMap, "PtrUint16")
+		assert.Contains(t, fieldMap, "PtrUint32")
+		assert.Contains(t, fieldMap, "PtrUint64")
 		assert.Contains(t, fieldMap, "PtrFloat32")
 		assert.Contains(t, fieldMap, "PtrFloat64")
 		assert.Contains(t, fieldMap, "PtrBool")
@@ -77,6 +97,11 @@ func TestGet(t *testing.T) {
 		int16Val := int16(3)
 		int32Val := int32(4)
 		int64Val := int64(5)
+		uintVal := uint(6)
+		uint8Val := uint8(7)
+		uint16Val := uint16(8)
+		uint32Val := uint32(9)
+		uint64Val := uint64(10)
 		f32Val := float32(6.6)
 		f64Val := float64(7.7)
 		boolVal := true
@@ -89,6 +114,11 @@ func TestGet(t *testing.T) {
 			Int16:      int16Val,
 			Int32:      int32Val,
 			Int64:      int64Val,
+			Uint:       uintVal,
+			Uint8:      uint8Val,
+			Uint16:     uint16Val,
+			Uint32:     uint32Val,
+			Uint64:     uint64Val,
 			Float32:    f32Val,
 			Float64:    f64Val,
 			Bool:       boolVal,
@@ -100,6 +130,11 @@ func TestGet(t *testing.T) {
 			PtrInt16:   &int16Val,
 			PtrInt32:   &int32Val,
 			PtrInt64:   &int64Val,
+			PtrUint:    &uintVal,
+			PtrUint8:   &uint8Val,
+			PtrUint16:  &uint16Val,
+			PtrUint32:  &uint32Val,
+			PtrUint64:  &uint64Val,
 			PtrFloat32: &f32Val,
 			PtrFloat64: &f64Val,
 			PtrBool:    &boolVal,
@@ -117,6 +152,11 @@ func TestGet(t *testing.T) {
 		assert.Equal(t, source.Int16, fieldsMap["Int16"].Get(source))
 		assert.Equal(t, source.Int32, fieldsMap["Int32"].Get(source))
 		assert.Equal(t, source.Int64, fieldsMap["Int64"].Get(source))
+		assert.Equal(t, source.Uint, fieldsMap["Uint"].Get(source))
+		assert.Equal(t, source.Uint8, fieldsMap["Uint8"].Get(source))
+		assert.Equal(t, source.Uint16, fieldsMap["Uint16"].Get(source))
+		assert.Equal(t, source.Uint32, fieldsMap["Uint32"].Get(source))
+		assert.Equal(t, source.Uint64, fieldsMap["Uint64"].Get(source))
 		assert.Equal(t, source.Float32, fieldsMap["Float32"].Get(source))
 		assert.Equal(t, source.Float64, fieldsMap["Float64"].Get(source))
 		assert.Equal(t, source.Bool, fieldsMap["Bool"].Get(source))
@@ -127,6 +167,11 @@ func TestGet(t *testing.T) {
 		assert.Equal(t, source.PtrInt16, fieldsMap["PtrInt16"].Get(source))
 		assert.Equal(t, source.PtrInt32, fieldsMap["PtrInt32"].Get(source))
 		assert.Equal(t, source.PtrInt64, fieldsMap["PtrInt64"].Get(source))
+		assert.Equal(t, source.PtrUint, fieldsMap["PtrUint"].Get(source))
+		assert.Equal(t, source.PtrUint8, fieldsMap["PtrUint8"].Get(source))
+		assert.Equal(t, source.PtrUint16, fieldsMap["PtrUint16"].Get(source))
+		assert.Equal(t, source.PtrUint32, fieldsMap["PtrUint32"].Get(source))
+		assert.Equal(t, source.PtrUint64, fieldsMap["PtrUint64"].Get(source))
 		assert.Equal(t, source.PtrFloat32, fieldsMap["PtrFloat32"].Get(source))
 		assert.Equal(t, source.PtrFloat64, fieldsMap["PtrFloat64"].Get(source))
 		assert.Equal(t, source.PtrBool, fieldsMap["PtrBool"].Get(source))
@@ -147,6 +192,11 @@ func TestSet(t *testing.T) {
 		int16Val := int16(8)
 		int32Val := int32(9)
 		int64Val := int64(10)
+		uintVal := uint(6)
+		uint8Val := uint8(7)
+		uint16Val := uint16(8)
+		uint32Val := uint32(9)
+		uint64Val := uint64(10)
 		f32Val := float32(11.11)
 		f64Val := 12.12
 		boolVal := true
@@ -161,6 +211,11 @@ func TestSet(t *testing.T) {
 		fieldMap["Int16"].Set(dest, int16Val)
 		fieldMap["Int32"].Set(dest, int32Val)
 		fieldMap["Int64"].Set(dest, int64Val)
+		fieldMap["Uint"].Set(dest, uintVal)
+		fieldMap["Uint8"].Set(dest, uint8Val)
+		fieldMap["Uint16"].Set(dest, uint16Val)
+		fieldMap["Uint32"].Set(dest, uint32Val)
+		fieldMap["Uint64"].Set(dest, uint64Val)
 		fieldMap["Float32"].Set(dest, f32Val)
 		fieldMap["Float64"].Set(dest, f64Val)
 		fieldMap["Bool"].Set(dest, boolVal)
@@ -172,6 +227,11 @@ func TestSet(t *testing.T) {
 		fieldMap["PtrInt16"].Set(dest, &int16Val)
 		fieldMap["PtrInt32"].Set(dest, &int32Val)
 		fieldMap["PtrInt64"].Set(dest, &int64Val)
+		fieldMap["PtrUint"].Set(dest, &uintVal)
+		fieldMap["PtrUint8"].Set(dest, &uint8Val)
+		fieldMap["PtrUint16"].Set(dest, &uint16Val)
+		fieldMap["PtrUint32"].Set(dest, &uint32Val)
+		fieldMap["PtrUint64"].Set(dest, &uint64Val)
 		fieldMap["PtrFloat32"].Set(dest, &f32Val)
 		fieldMap["PtrFloat64"].Set(dest, &f64Val)
 		fieldMap["PtrBool"].Set(dest, &boolVal)
@@ -186,6 +246,11 @@ func TestSet(t *testing.T) {
 		assert.Equal(t, int16Val, dest.Int16)
 		assert.Equal(t, int32Val, dest.Int32)
 		assert.Equal(t, int64Val, dest.Int64)
+		assert.Equal(t, uintVal, dest.Uint)
+		assert.Equal(t, uint8Val, dest.Uint8)
+		assert.Equal(t, uint16Val, dest.Uint16)
+		assert.Equal(t, uint32Val, dest.Uint32)
+		assert.Equal(t, uint64Val, dest.Uint64)
 		assert.Equal(t, f32Val, dest.Float32)
 		assert.Equal(t, f64Val, dest.Float64)
 		assert.Equal(t, boolVal, dest.Bool)
@@ -197,6 +262,11 @@ func TestSet(t *testing.T) {
 		assert.Equal(t, &int16Val, dest.PtrInt16)
 		assert.Equal(t, &int32Val, dest.PtrInt32)
 		assert.Equal(t, &int64Val, dest.PtrInt64)
+		assert.Equal(t, &uintVal, dest.PtrUint)
+		assert.Equal(t, &uint8Val, dest.PtrUint8)
+		assert.Equal(t, &uint16Val, dest.PtrUint16)
+		assert.Equal(t, &uint32Val, dest.PtrUint32)
+		assert.Equal(t, &uint64Val, dest.PtrUint64)
 		assert.Equal(t, &f32Val, dest.PtrFloat32)
 		assert.Equal(t, &f64Val, dest.PtrFloat64)
 		assert.Equal(t, &boolVal, dest.PtrBool)
