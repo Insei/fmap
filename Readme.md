@@ -1,4 +1,8 @@
-# FMap
+[![codecov](https://codecov.io/github/Insei/fmap/branch/main/graph/badge.svg?token=S8EDJENDSI)](https://codecov.io/github/Insei/fmap) 
+[![build](https://github.com/insei/fmap/actions/workflows/go.yml/badge.svg)](https://github.com/Insei/fmap/actions/workflows/go.yml)
+[![Goreport](https://goreportcard.com/badge/github.com/insei/fmap)](https://goreportcard.com/report/github.com/insei/fmap)
+[![GoDoc](https://godoc.org/github.com/insei/fmap?status.svg)](https://godoc.org/github.com/insei/fmap)
+# FMap 
 FMap is a simple library for working with structs as map of fields. Switch case and reflect based.
 
 # Description
