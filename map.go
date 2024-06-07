@@ -41,7 +41,7 @@ func getFieldsMapRecursive(conf any, path string, f *map[string]Field, offset ui
 		switch fieldTypeOf.Type.Kind() {
 		case reflect.Struct:
 			(*f)[path+fieldTypeOf.Name] = Field(fieldTypeOf)
-			getFieldsMapRecursive(fieldValueOf.Addr().Interface(), path+fieldTypeOf.Name, f, fieldTypeOf.Offset)
+			getFieldsMapRecursive(fieldValueOf.Addr().Interface(), path+fieldTypeOf.Name, f, offset+fieldTypeOf.Offset)
 		default:
 			fld := Field(fieldTypeOf)
 			fld.Offset = fld.Offset + offset
