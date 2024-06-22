@@ -6,9 +6,9 @@
 FMap is a simple library for working with structs as map of fields. Switch case and reflect based.
 
 # Description
-FMap creates new map with filed names as key and with fmap.Field(reflect.StructField) values. This is unsafe library, be careful while use.
+FMap creates new map with filed names as key and with fmap.Field implementations. This is unsafe library, be careful while use.
 
-fmap.IField has default and some advanced methods:
+fmap.Field has default and some advanced methods:
 * Default (for interacting with reflect.StructField values)
 ```
 GetName() string

@@ -12,7 +12,7 @@ type field struct {
 	parent     *field
 }
 
-type IField interface {
+type Field interface {
 	GetName() string
 	GetPkgPath() string
 	GetType() reflect.Type
@@ -48,7 +48,7 @@ type IField interface {
 	// It returns the tag value path as a string.
 	GetTagPath(tag string, ignoreParentTagMissing bool) string
 	// GetParent returns the parent field of the current field, if not exist return nil.
-	GetParent() IField
+	GetParent() Field
 }
 
 func (f *field) GetName() string {
@@ -87,7 +87,7 @@ func (f *field) GetStructPath() string {
 	return f.structPath
 }
 
-func (f *field) GetParent() IField {
+func (f *field) GetParent() Field {
 	return f.parent
 }
 
