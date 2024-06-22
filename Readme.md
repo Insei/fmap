@@ -8,16 +8,33 @@ FMap is a simple library for working with structs as map of fields. Switch case 
 # Description
 FMap creates new map with filed names as key and with fmap.Field(reflect.StructField) values. This is unsafe library, be careful while use.
 
-fmap.Field has 3 advanced methods:
-
+fmap.IField has default and some advanced methods:
+* Default (for interacting with reflect.StructField values)
 ```
-Get[T any]() any
+GetName() string
+GetPkgPath() string
+GetType() reflect.Type
+GetTag() reflect.StructTag
+GetOffset() uintptr
+GetIndex() []int
+GetAnonymous() bool
+IsExported() bool
+```
+* Advanced
+```
+GetStructPath() string
+GetTagPath(tag string, ignoreParentTagMissing bool) string
+GetParent() IField
+Get(obj any) any
 Set(obj any, val any)
 GetPtr(obj any) any
 ```
 
 where the `obj` should be not nil pointer to struct.<br>
-`Get[T any]() any` -  return expected typed value as interface{}.<br>
+`GetStructPath() string` - returns full path to the field into struct.<br>
+`GetTagPath(tag string, ignoreParentTagMissing bool) string` - returns full path to the field into struct but as tag values.<br>
+`GetParent() IField` - returns a parent field, if exist.<br>
+`Get(obj any)` -  return expected typed value as interface{}.<br>
 `Set(obj any, val any)` -  `val` expected typed value to set, {}interface can be used.<br>
 `GetPtr(obj any) any` - return expected typed value pointer to struct field as interface{}.
 # Example
@@ -33,14 +50,14 @@ import (
 )
 
 type City struct {
-	Name string
+	Name string `json:"name"`
 }
 
 type People struct {
 	Name     string
 	Age      uint8
 	Birthday time.Time
-	City City
+	City City `json:"city"`
 }
 
 func main() {
@@ -50,7 +67,10 @@ func main() {
 	fields["Age"].Set(p, uint8(5))
 	fields["Birthday"].Set(p, time.Now())
 	fields["City.Name"].Set(p, "DefaultCity")
-	fmt.Print(*p)
+	jsonPath := fields["City.Name"].GetTagPath("json", false) // city.name
+	cityField := fields["City.Name"].GetParent()
+	cityStruct := cityField.Get(p)
+	fmt.Print(*p, jsonPath, cityStruct)
 }
 ```
 

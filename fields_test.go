@@ -1,6 +1,7 @@
 package fmap
 
 import (
+	"reflect"
 	"testing"
 	"time"
 
@@ -337,4 +338,67 @@ func TestGetPtr(t *testing.T) {
 		assert.Equal(t, source.NestedStruct.PtrString, *nestedStructPtrStringFiled)
 		assert.NotEqual(t, source.NestedStruct.PtrString, &strVal)
 	})
+}
+
+func getMockField(tag reflect.StructTag, parent *field) *field {
+	return &field{
+		StructField: reflect.StructField{
+			Tag: tag,
+		},
+		parent: parent,
+	}
+}
+
+func TestGetTagPath(t *testing.T) {
+	tests := []struct {
+		name            string
+		field           *field
+		tag             string
+		ignoreParentTag bool
+		want            string
+	}{
+		{
+			"Single Field Tag",
+			getMockField(`json:"tag1"`, nil),
+			"json",
+			false,
+			"tag1",
+		},
+		{
+			"Nested Field Tag",
+			getMockField(`json:"tag2"`, getMockField(`json:"tag1"`, nil)),
+			"json",
+			false,
+			"tag1.tag2",
+		},
+		{
+			"Missing Parent Tag",
+			getMockField(`json:"tag2"`, getMockField(``, nil)),
+			"json",
+			false,
+			"",
+		},
+		{
+			"Missing Current Tag",
+			getMockField(``, getMockField(`json:"tag1"`, nil)),
+			"json",
+			false,
+			"",
+		},
+		{
+			"Ignore Missing Parent Tag",
+			getMockField(`json:"tag2"`, getMockField(``, nil)),
+			"json",
+			true,
+			"tag2",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.field.GetTagPath(tt.tag, tt.ignoreParentTag); got != tt.want {
+				t.Errorf("field.GetTagPath() = %v, want %v", got, tt.want)
+			}
+		})
+	}
 }

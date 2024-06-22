@@ -2,30 +2,30 @@ package fmap
 
 import "reflect"
 
-var cache = map[reflect.Type]map[string]Field{}
+var cache = map[reflect.Type]map[string]IField{}
 
-// Get returns a map of Field objects.
+// Get returns a map of field objects.
 // It takes a parameter `T` of type `any`, representing the type to be used for Fields map creation.
-func Get[T any]() map[string]Field {
+func Get[T any]() map[string]IField {
 	obj := new(T)
 	return GetFrom(obj)
 }
 
-// GetFrom returns a map of Field objects. It takes a parameter `obj` of type `interface{}` representing the object to be analyzed.
+// GetFrom returns a map of field objects. It takes a parameter `obj` of type `interface{}` representing the object to be analyzed.
 // The function first checks if the `obj` type is already in the cache, and if it exists, it returns the cached value.
 // Otherwise, it creates a new empty map with fields.
-func GetFrom(obj interface{}) map[string]Field {
+func GetFrom(obj interface{}) map[string]IField {
 	typeOf := reflect.TypeOf(obj)
 	if tFields, ok := cache[typeOf]; ok {
 		return tFields
 	}
-	tFields := map[string]Field{}
+	tFields := map[string]IField{}
 	getFieldsMapRecursive(obj, "", &tFields, 0)
 	cache[typeOf] = tFields
 	return tFields
 }
 
-func getFieldsMapRecursive(conf any, path string, f *map[string]Field, offset uintptr) {
+func getFieldsMapRecursive(conf any, path string, f *map[string]IField, offset uintptr) {
 	typeOf := reflect.TypeOf(conf)
 	valueOf := reflect.ValueOf(conf)
 	if valueOf.Kind() == reflect.Ptr {
@@ -38,12 +38,17 @@ func getFieldsMapRecursive(conf any, path string, f *map[string]Field, offset ui
 	for i := 0; i < typeOf.NumField(); i++ {
 		fieldTypeOf := typeOf.Field(i)
 		fieldValueOf := valueOf.Field(i)
+		var parent *field = nil
+		if path != "" {
+			parentPath := path[:len(path)-1]
+			parent, _ = (*f)[parentPath].(*field)
+		}
 		switch fieldTypeOf.Type.Kind() {
 		case reflect.Struct:
-			(*f)[path+fieldTypeOf.Name] = Field(fieldTypeOf)
+			(*f)[path+fieldTypeOf.Name] = &field{StructField: fieldTypeOf, structPath: path + fieldTypeOf.Name, parent: parent}
 			getFieldsMapRecursive(fieldValueOf.Addr().Interface(), path+fieldTypeOf.Name, f, offset+fieldTypeOf.Offset)
 		default:
-			fld := Field(fieldTypeOf)
+			fld := &field{StructField: fieldTypeOf, structPath: path + fieldTypeOf.Name, parent: parent}
 			fld.Offset = fld.Offset + offset
 			(*f)[path+fieldTypeOf.Name] = fld
 		}

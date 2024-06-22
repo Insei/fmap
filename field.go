@@ -2,19 +2,103 @@ package fmap
 
 import (
 	"reflect"
+	"strings"
 	"unsafe"
 )
 
-type Field reflect.StructField
+type field struct {
+	reflect.StructField
+	structPath string
+	parent     *field
+}
 
-func (f Field) GetPtr(obj interface{}) interface{} {
+type IField interface {
+	GetName() string
+	GetPkgPath() string
+	GetType() reflect.Type
+	GetTag() reflect.StructTag
+	GetOffset() uintptr
+	GetIndex() []int
+	GetAnonymous() bool
+	IsExported() bool
+
+	// Get returns the value of the fields in the provided object.
+	// It takes a parameter `obj` of type `interface{}`, representing the object.
+	// It returns the value of the fields as an `interface{}`.
+	Get(obj any) any
+
+	// GetPtr returns the pointer to the field's value in the provided object.
+	// It takes a parameter `obj` of type `any`, representing the pointer to object.
+	// It returns the pointer to the field's value as an `any`.
+	GetPtr(obj any) any
+	// Set updates the value of the fields in the provided object with the provided value.
+	// It takes two parameters:
+	//   - obj: interface{}, representing the object pointer containing the field.
+	//   - val: interface{}, representing the new value for the field.
+	Set(obj any, val any)
+
+	// GetStructPath returns the struct path of the field.
+	// It returns the struct path as a string.
+	GetStructPath() string
+
+	// GetTagPath returns the path of the field's tag value with the given tag name.
+	// It takes two parameters:
+	//   - tag: string, representing the tag name.
+	//   - ignoreParentTagMissing: bool, representing whether to ignore the missing parent tags or not.
+	// It returns the tag value path as a string.
+	GetTagPath(tag string, ignoreParentTagMissing bool) string
+	// GetParent returns the parent field of the current field, if not exist return nil.
+	GetParent() IField
+}
+
+func (f *field) GetName() string {
+	return f.Name
+}
+
+func (f *field) GetPkgPath() string {
+	return f.PkgPath
+}
+
+func (f *field) GetType() reflect.Type {
+	return f.Type
+}
+
+func (f *field) GetTag() reflect.StructTag {
+	return f.Tag
+}
+
+func (f *field) GetOffset() uintptr {
+	return f.Offset
+}
+
+func (f *field) GetIndex() []int {
+	return f.Index
+}
+
+func (f *field) GetAnonymous() bool {
+	return f.Anonymous
+}
+
+func (f *field) IsExported() bool {
+	return f.PkgPath == ""
+}
+
+func (f *field) GetStructPath() string {
+	return f.structPath
+}
+
+func (f *field) GetParent() IField {
+	return f.parent
+}
+
+func (f *field) GetPtr(obj interface{}) interface{} {
 	return reflect.NewAt(f.Type, f.getPtr(obj)).Interface()
 }
 
 // Get returns the value of the fields in the provided object.
 // It takes a parameter `obj` of type `interface{}`, representing the object.
 // It returns the value of the fields as an `interface{}`.
-func (f Field) Get(obj interface{}) interface{} {
+func (f *field) Get(obj interface{}) interface{} {
 	ptrToField := f.getPtr(obj)
 	kind := f.Type.Kind()
 	isPtr := false
@@ -103,10 +187,34 @@ func (f Field) Get(obj interface{}) interface{} {
 	}
 }
 
+func (f *field) GetTagPath(tag string, ignoreParentTagMissing bool) string {
+	tagPath := ""
+	if val, ok := f.Tag.Lookup(tag); ok {
+		vals := strings.Split(val, ",")
+		if len(vals) > 0 && len(vals[0]) > 0 {
+			tagPath = vals[0]
+		}
+	}
+	if tagPath == "" {
+		return tagPath
+	}
+	if f.parent == nil {
+		return tagPath
+	}
+	parentTag := f.parent.GetTagPath(tag, ignoreParentTagMissing)
+	if parentTag == "" && !ignoreParentTagMissing {
+		return ""
+	}
+	if parentTag == "" {
+		return tagPath
+	}
+	return parentTag + "." + tagPath
+}
+
 // getPtr returns a pointer to the field's value in the provided configuration object.
 // It takes a parameter `conf` of type `any`, representing the configuration object.
 // It returns an `unsafe.Pointer` to the `field's` value in the configuration object.
-func (f Field) getPtr(obj interface{}) unsafe.Pointer {
+func (f *field) getPtr(obj interface{}) unsafe.Pointer {
 	confPointer := ((*[2]unsafe.Pointer)(unsafe.Pointer(&obj)))[1]
 	ptToField := unsafe.Add(confPointer, f.Offset)
 	return ptToField
@@ -130,7 +238,7 @@ func getPtrValue[T any](ptr unsafe.Pointer) T {
 // It then performs a type switch on the kind of the fields to determine its type, and sets the value accordingly.
 // The supported fields types are string, int, and bool.
 // If the fields type is not one of the supported types, it panics with the message "unhandled default case".
-func (f Field) Set(obj interface{}, val interface{}) {
+func (f *field) Set(obj interface{}, val interface{}) {
 	ptrToField := f.getPtr(obj)
 	kind := f.Type.Kind()
 	isPtr := false
