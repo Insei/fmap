@@ -81,3 +81,22 @@ func main() {
 ```
 
 More examples in `fields_test.go`, like slice fields, nested structs, pointers etc.
+
+# Benchmarks
+`fmap.GetFrom(obj any) map[string]Field`
+```
+BenchmarkGetFrom
+BenchmarkGetFrom-16     93002347                12.62 ns/op            0 B/op          0 allocs/op
+```
+
+`Field.Get(obj any) any`
+```
+BenchmarkFieldGet
+BenchmarkFieldGet-16            88818492                14.05 ns/op            0 B/op          0 allocs/op
+```
+
+`Raw access to field from struct :)`
+```
+BenchmarkRawFieldGet
+BenchmarkRawFieldGet-16         1000000000               0.2350 ns/op          0 B/op          0 allocs/op
+```
