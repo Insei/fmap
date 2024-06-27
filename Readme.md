@@ -52,7 +52,7 @@ import (
 	"time"
 	"fmt"
 
-	"github.com/insei/fmap"
+	"github.com/insei/fmap/v2"
 )
 
 type City struct {
