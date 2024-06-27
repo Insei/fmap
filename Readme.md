@@ -5,6 +5,12 @@
 # FMap 
 FMap is a simple library for working with structs as map of fields. Switch case and reflect based.
 
+# Installation
+Install via go get. Note that Go 1.18 or newer is required.
+```sh
+go get github.com/insei/fmap/v2@latest
+```
+
 # Description
 FMap creates new map with filed names as key and with fmap.Field implementations. This is unsafe library, be careful while use.
 
