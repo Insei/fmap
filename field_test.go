@@ -468,3 +468,18 @@ func TestField_GetDereferencedType(t *testing.T) {
 		})
 	}
 }
+
+func TestField_ReflectStructField(t *testing.T) {
+	fields, _ := GetFrom(&struct {
+		TestField string
+	}{})
+	fld := fields.MustFind("TestField")
+	fld.GetType()
+	fld.GetTag()
+	fld.GetParent()
+	fld.GetAnonymous()
+	fld.GetIndex()
+	fld.GetName()
+	fld.GetOffset()
+	fld.GetPkgPath()
+}
