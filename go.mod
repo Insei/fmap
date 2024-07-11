@@ -1,4 +1,4 @@
-module github.com/insei/fmap/v2
+module github.com/insei/fmap/v3
 
 go 1.18
 

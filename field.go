@@ -8,47 +8,9 @@ import (
 
 type field struct {
 	reflect.StructField
-	structPath string
-	parent     *field
-}
-
-type Field interface {
-	GetName() string
-	GetPkgPath() string
-	GetType() reflect.Type
-	GetTag() reflect.StructTag
-	GetOffset() uintptr
-	GetIndex() []int
-	GetAnonymous() bool
-	IsExported() bool
-
-	// Get returns the value of the fields in the provided object.
-	// It takes a parameter `obj` of type `interface{}`, representing the object.
-	// It returns the value of the fields as an `interface{}`.
-	Get(obj any) any
-
-	// GetPtr returns the pointer to the field's value in the provided object.
-	// It takes a parameter `obj` of type `any`, representing the pointer to object.
-	// It returns the pointer to the field's value as an `any`.
-	GetPtr(obj any) any
-	// Set updates the value of the fields in the provided object with the provided value.
-	// It takes two parameters:
-	//   - obj: interface{}, representing the object pointer containing the field.
-	//   - val: interface{}, representing the new value for the field.
-	Set(obj any, val any)
-
-	// GetStructPath returns the struct path of the field.
-	// It returns the struct path as a string.
-	GetStructPath() string
-
-	// GetTagPath returns the path of the field's tag value with the given tag name.
-	// It takes two parameters:
-	//   - tag: string, representing the tag name.
-	//   - ignoreParentTagMissing: bool, representing whether to ignore the missing parent tags or not.
-	// It returns the tag value path as a string.
-	GetTagPath(tag string, ignoreParentTagMissing bool) string
-	// GetParent returns the parent field of the current field, if not exist return nil.
-	GetParent() Field
+	structPath      string
+	parent          *field
+	dereferenceType reflect.Type
 }
 
 func (f *field) GetName() string {
@@ -95,9 +57,9 @@ func (f *field) GetPtr(obj interface{}) interface{} {
 	return reflect.NewAt(f.Type, f.getPtr(obj)).Interface()
 }
 
-// Get returns the value of the fields in the provided object.
+// Get returns the value of the storage in the provided object.
 // It takes a parameter `obj` of type `interface{}`, representing the object.
-// It returns the value of the fields as an `interface{}`.
+// It returns the value of the storage as an `interface{}`.
 func (f *field) Get(obj interface{}) interface{} {
 	ptrToField := f.getPtr(obj)
 	kind := f.Type.Kind()
@@ -229,15 +191,15 @@ func getPtrValue[T any](ptr unsafe.Pointer) T {
 	return *(*T)(ptr)
 }
 
-// Set updates the value of the fields in the provided object with the provided value.
+// Set updates the value of the storage in the provided object with the provided value.
 // It takes two parameters:
 //   - obj: interface{}, representing the object containing the field.
 //   - val: interface{}, representing the new value for the field.
 //
-// The Set method uses the getPtr method to get a pointer to the fields in the object.
-// It then performs a type switch on the kind of the fields to determine its type, and sets the value accordingly.
-// The supported fields types are string, int, and bool.
-// If the fields type is not one of the supported types, it panics with the message "unhandled default case".
+// The Set method uses the getPtr method to get a pointer to the storage in the object.
+// It then performs a type switch on the kind of the storage to determine its type, and sets the value accordingly.
+// The supported storage types are string, int, and bool.
+// If the storage type is not one of the supported types, it panics with the message "unhandled default case".
 func (f *field) Set(obj interface{}, val interface{}) {
 	ptrToField := f.getPtr(obj)
 	kind := f.Type.Kind()
@@ -319,4 +281,30 @@ func (f *field) Set(obj interface{}, val interface{}) {
 			dest.Set(source)
 		}
 	}
+}
+
+func (f *field) GetDereferencedType() reflect.Type {
+	if f.dereferenceType != nil {
+		return f.dereferenceType
+	}
+	indirectType := f.Type
+	for indirectType.Kind() == reflect.Ptr {
+		indirectType = indirectType.Elem()
+	}
+	f.dereferenceType = indirectType
+	return f.dereferenceType
+}
+
+// GetDereferenced - uses reflect package for casting field value from obj to direct field value, i.e. dereferenced value.
+func (f *field) GetDereferenced(obj any) (any, bool) {
+	derefType := f.GetDereferencedType()
+	value := f.Get(obj)
+	valOf := reflect.ValueOf(value)
+	for valOf.IsValid() && valOf.Kind() == reflect.Ptr {
+		valOf = valOf.Elem()
+	}
+	if valOf.IsValid() && derefType == valOf.Type() {
+		return valOf.Interface(), true
+	}
+	return nil, false
 }
