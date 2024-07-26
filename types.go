@@ -15,6 +15,8 @@ type Storage interface {
 
 	// GetAllPaths returns a slice containing all paths of fields in the struct ordered like field struct definition.
 	GetAllPaths() []string
+
+	GetFieldByPtr(structPtr, fieldPtr any) (Field, error)
 }
 
 type Field interface {
