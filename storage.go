@@ -1,8 +1,10 @@
 package fmap
 
 import (
+	"errors"
 	"fmt"
 	"reflect"
+	"unsafe"
 )
 
 var cache = map[reflect.Type]Storage{}
@@ -102,4 +104,42 @@ func getFieldsMapRecursive(confTypeOf reflect.Type, path string, f *map[string]F
 			(*f)[path+fieldTypeOf.Name] = fld
 		}
 	}
+}
+
+func (s *storage) GetFieldByPtr(structPtr, fieldPtr any) (Field, error) {
+	fldType := reflect.TypeOf(fieldPtr)
+	if fldType.Kind() != reflect.Ptr {
+		return nil, fmt.Errorf("not supported type: %v, only ptr to types is supported", fldType)
+	}
+
+	for fldType.Kind() == reflect.Ptr {
+		fldType = fldType.Elem()
+	}
+
+	structType := reflect.TypeOf(structPtr)
+	if structType.Kind() != reflect.Ptr ||
+		(structType.Kind() == reflect.Ptr && structType.Elem().Kind() != reflect.Struct) {
+		return nil, fmt.Errorf("not supported type: %v, only struct and ptr to struct is supported", structType)
+	}
+
+	fPtr := ((*[2]unsafe.Pointer)(unsafe.Pointer(&fieldPtr)))[1]
+	sPtr := ((*[2]unsafe.Pointer)(unsafe.Pointer(&structPtr)))[1]
+	offset := uintptr(fPtr) - uintptr(sPtr)
+
+	for _, path := range s.GetAllPaths() {
+		fld := s.MustFind(path)
+
+		if fld.GetOffset() != offset {
+			continue
+		}
+
+		matchType := fld.GetType().Kind() == fldType.Kind()
+		if !matchType {
+			continue
+		}
+
+		return fld, nil
+	}
+
+	return nil, errors.New("field not found")
 }
