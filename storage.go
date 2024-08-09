@@ -112,7 +112,7 @@ func (s *storage) GetFieldByPtr(structPtr, fieldPtr any) (Field, error) {
 		return nil, fmt.Errorf("not supported type: %v, only ptr to types is supported", fldType)
 	}
 
-	for fldType.Kind() == reflect.Ptr {
+	if fldType.Kind() == reflect.Ptr {
 		fldType = fldType.Elem()
 	}
 

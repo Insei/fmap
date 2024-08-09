@@ -1,10 +1,11 @@
 package fmap
 
 import (
-	"github.com/stretchr/testify/assert"
 	"reflect"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestFmap(t *testing.T) {
@@ -116,7 +117,8 @@ func BenchmarkRawFieldGet(b *testing.B) {
 
 func Test_storage_GetFieldByPtr(t *testing.T) {
 	type TestStruct struct {
-		Name         string
+		String       string
+		StringPtr    *string
 		Age          uint
 		NestedStruct struct {
 			Field    string
@@ -131,8 +133,9 @@ func Test_storage_GetFieldByPtr(t *testing.T) {
 
 	a, b, c := "a", "b", "c"
 	test := TestStruct{
-		Name: "meow",
-		Age:  17,
+		String:    "meow",
+		StringPtr: &a,
+		Age:       17,
 		NestedStruct: struct {
 			Field    string
 			Slice    []string
@@ -172,6 +175,15 @@ func Test_storage_GetFieldByPtr(t *testing.T) {
 		want       Field
 		wantErr    bool
 	}{
+		{
+			name: "exist string ptr field",
+			args: args{
+				structPtr: &test,
+				fieldPtr:  &test.StringPtr,
+			},
+			want:    s.MustFind("StringPtr"),
+			wantErr: false,
+		},
 		{
 			name: "exist uint field",
 			args: args{
