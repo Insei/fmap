@@ -98,14 +98,9 @@ func (f *field) Get(obj interface{}) interface{} {
 			return getPtrValue[*float64](ptrToField)
 		case reflect.Bool:
 			return getPtrValue[*bool](ptrToField)
-		case reflect.Struct:
-			return reflect.NewAt(f.Type, ptrToField).Elem().Interface()
-		case reflect.Slice:
-			return reflect.NewAt(f.Type, ptrToField).Elem().Interface()
-		case reflect.Array:
-			return reflect.NewAt(f.Type, ptrToField).Elem().Interface()
 		default:
-			panic("unhandled default case")
+
+			return reflect.NewAt(f.Type, ptrToField).Elem().Interface()
 		}
 	} else {
 		switch kind {
@@ -137,14 +132,8 @@ func (f *field) Get(obj interface{}) interface{} {
 			return getPtrValue[float64](ptrToField)
 		case reflect.Bool:
 			return getPtrValue[bool](ptrToField)
-		case reflect.Struct:
-			return reflect.NewAt(f.Type, ptrToField).Elem().Interface()
-		case reflect.Slice:
-			return reflect.NewAt(f.Type, ptrToField).Elem().Interface()
-		case reflect.Array:
-			return reflect.NewAt(f.Type, ptrToField).Elem().Interface()
 		default:
-			panic("unhandled default case")
+			return reflect.NewAt(f.Type, ptrToField).Elem().Interface()
 		}
 	}
 }
