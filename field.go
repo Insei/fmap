@@ -13,6 +13,22 @@ type field struct {
 	dereferenceType reflect.Type
 }
 
+func newField(structField reflect.StructField, structPath string, parent *field) *field {
+	return &field{
+		StructField:     structField,
+		structPath:      structPath,
+		parent:          parent,
+		dereferenceType: dereferenceType(structField.Type),
+	}
+}
+
+func dereferenceType(typeOf reflect.Type) reflect.Type {
+	for typeOf.Kind() == reflect.Ptr {
+		typeOf = typeOf.Elem()
+	}
+	return typeOf
+}
+
 func (f *field) GetName() string {
 	return f.Name
 }
@@ -50,6 +66,10 @@ func (f *field) GetStructPath() string {
 }
 
 func (f *field) GetParent() Field {
+	if f.parent == nil {
+		// nil pointer in the interface is not equal to nil
+		return nil
+	}
 	return f.parent
 }
 
@@ -173,7 +193,12 @@ func (f *field) getPtr(obj interface{}) unsafe.Pointer {
 
 func setPtrValue[T any](ptr unsafe.Pointer, val any) {
 	valSet := (*T)(ptr)
-	*valSet = val.(T)
+	if typed, ok := val.(T); ok {
+		*valSet = typed
+		return
+	}
+	// value of the named type: time.Duration for int64 field kind, *time.Duration for *int64 and so on
+	*valSet = reflect.ValueOf(val).Convert(reflect.TypeOf(*valSet)).Interface().(T)
 }
 
 func getPtrValue[T any](ptr unsafe.Pointer) T {
@@ -273,14 +298,7 @@ func (f *field) Set(obj interface{}, val interface{}) {
 }
 
 func (f *field) GetDereferencedType() reflect.Type {
-	if f.dereferenceType != nil {
-		return f.dereferenceType
-	}
-	indirectType := f.Type
-	for indirectType.Kind() == reflect.Ptr {
-		indirectType = indirectType.Elem()
-	}
-	f.dereferenceType = indirectType
+	// calculated once in newField, the field is read only after that and can be used from many goroutines
 	return f.dereferenceType
 }
 

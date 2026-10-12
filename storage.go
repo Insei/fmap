@@ -4,10 +4,14 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"sync"
 	"unsafe"
 )
 
-var cache = map[reflect.Type]Storage{}
+var (
+	cache   = map[reflect.Type]Storage{}
+	cacheMu sync.RWMutex
+)
 
 // Get returns a map of field objects.
 // It takes a parameter `T` of type `any`, representing the type to be used for Fields map creation.
@@ -50,14 +54,24 @@ func getFrom(typeOf reflect.Type) (Storage, error) {
 		(typeOf.Kind() == reflect.Pointer && typeOf.Elem().Kind() != reflect.Struct) {
 		return nil, fmt.Errorf("not supported type: %v, only struct and ptr to struct is supported", typeOf)
 	}
-	if tFields, ok := cache[typeOf]; ok {
-		return tFields, nil
+	cacheMu.RLock()
+	cached, ok := cache[typeOf]
+	cacheMu.RUnlock()
+	if ok {
+		return cached, nil
 	}
 	tFields := map[string]Field{}
 	count := new(int)
 	calculateFields(typeOf, count)
 	slice := make([]string, 0, *count)
 	getFieldsMapRecursive(typeOf, "", &tFields, &slice, 0)
+
+	cacheMu.Lock()
+	defer cacheMu.Unlock()
+	// storage can be already created by another goroutine
+	if cached, ok = cache[typeOf]; ok {
+		return cached, nil
+	}
 	cache[typeOf] = &storage{
 		asMap: tFields,
 		paths: slice,
@@ -93,12 +107,14 @@ func getFieldsMapRecursive(confTypeOf reflect.Type, path string, f *map[string]F
 		}
 		switch fieldTypeOf.Type.Kind() {
 		case reflect.Struct:
-			fld := &field{StructField: fieldTypeOf, structPath: path + fieldTypeOf.Name, parent: parent}
+			fld := newField(fieldTypeOf, path+fieldTypeOf.Name, parent)
+			// offset from the root struct, not from the parent
+			fld.Offset = fld.Offset + offset
 			(*f)[path+fieldTypeOf.Name] = fld
 			*s = append(*s, fld.structPath)
-			getFieldsMapRecursive(fieldTypeOf.Type, path+fieldTypeOf.Name, f, s, offset+fieldTypeOf.Offset)
+			getFieldsMapRecursive(fieldTypeOf.Type, path+fieldTypeOf.Name, f, s, fld.Offset)
 		default:
-			fld := &field{StructField: fieldTypeOf, structPath: path + fieldTypeOf.Name, parent: parent}
+			fld := newField(fieldTypeOf, path+fieldTypeOf.Name, parent)
 			fld.Offset = fld.Offset + offset
 			*s = append(*s, fld.structPath)
 			(*f)[path+fieldTypeOf.Name] = fld
@@ -126,6 +142,8 @@ func (s *storage) GetFieldByPtr(structPtr, fieldPtr any) (Field, error) {
 	sPtr := ((*[2]unsafe.Pointer)(unsafe.Pointer(&structPtr)))[1]
 	offset := uintptr(fPtr) - uintptr(sPtr)
 
+	// struct and its first field has the same offset, so the field with the same type is preferred
+	var matchKind Field
 	for _, path := range s.GetAllPaths() {
 		fld := s.MustFind(path)
 
@@ -133,12 +151,16 @@ func (s *storage) GetFieldByPtr(structPtr, fieldPtr any) (Field, error) {
 			continue
 		}
 
-		matchType := fld.GetType().Kind() == fldType.Kind()
-		if !matchType {
-			continue
+		if fld.GetType() == fldType {
+			return fld, nil
 		}
 
-		return fld, nil
+		if matchKind == nil && fld.GetType().Kind() == fldType.Kind() {
+			matchKind = fld
+		}
+	}
+	if matchKind != nil {
+		return matchKind, nil
 	}
 
 	return nil, errors.New("field not found")
