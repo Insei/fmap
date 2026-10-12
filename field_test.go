@@ -381,24 +381,18 @@ func TestField_GetDereferenced(t *testing.T) {
 		expected bool
 	}{
 		{
-			name: "IsDereferencedPtr",
-			field: &field{
-				StructField: rtype.Field(0),
-			},
+			name:     "IsDereferencedPtr",
+			field:    newField(rtype.Field(0), "", nil),
 			expected: true,
 		},
 		{
-			name: "AlreadyDereferencedType",
-			field: &field{
-				StructField: rtype.Field(1),
-			},
+			name:     "AlreadyDereferencedType",
+			field:    newField(rtype.Field(1), "", nil),
 			expected: true,
 		},
 		{
-			name: "NilDereferenceNotOk",
-			field: &field{
-				StructField: rtype.Field(2),
-			},
+			name:     "NilDereferenceNotOk",
+			field:    newField(rtype.Field(2), "", nil),
 			expected: false,
 		},
 	}
@@ -417,9 +411,9 @@ func TestField_GetDereferencedType(t *testing.T) {
 	type someStruct struct {
 		MyField int
 	}
-	dereferencedTypeIntPtrField := &field{StructField: reflect.StructField{
+	dereferencedTypeIntPtrField := newField(reflect.StructField{
 		Type: reflect.TypeOf(new(int)),
-	}}
+	}, "", nil)
 
 	testCases := []struct {
 		name     string
@@ -428,9 +422,9 @@ func TestField_GetDereferencedType(t *testing.T) {
 	}{
 		{
 			name: "DereferencedTypeInt",
-			field: &field{StructField: reflect.StructField{
+			field: newField(reflect.StructField{
 				Type: reflect.TypeOf(0),
-			}},
+			}, "", nil),
 			expected: reflect.TypeOf(0),
 		},
 		{
@@ -445,16 +439,16 @@ func TestField_GetDereferencedType(t *testing.T) {
 		},
 		{
 			name: "DereferencedTypeStruct",
-			field: &field{StructField: reflect.StructField{
+			field: newField(reflect.StructField{
 				Type: reflect.TypeOf(someStruct{}),
-			}},
+			}, "", nil),
 			expected: reflect.TypeOf(someStruct{}),
 		},
 		{
 			name: "DereferencedTypeStructPtr",
-			field: &field{StructField: reflect.StructField{
+			field: newField(reflect.StructField{
 				Type: reflect.TypeOf(new(someStruct)),
-			}},
+			}, "", nil),
 			expected: reflect.TypeOf(someStruct{}),
 		},
 	}
@@ -482,4 +476,66 @@ func TestField_ReflectStructField(t *testing.T) {
 	fld.GetName()
 	fld.GetOffset()
 	fld.GetPkgPath()
+}
+
+func TestField_GetParent(t *testing.T) {
+	type Config struct {
+		Name   string
+		Nested struct {
+			Inner struct {
+				Value int
+			}
+		}
+	}
+	storage, err := Get[Config]()
+	assert.NoError(t, err)
+
+	// field without parent returns nil interface, not nil pointer in the interface
+	assert.True(t, storage.MustFind("Name").GetParent() == nil)
+	assert.True(t, storage.MustFind("Nested").GetParent() == nil)
+
+	parent := storage.MustFind("Nested.Inner.Value").GetParent()
+	assert.Equal(t, "Nested.Inner", parent.GetStructPath())
+	assert.Equal(t, "Nested", parent.GetParent().GetStructPath())
+	assert.True(t, parent.GetParent().GetParent() == nil)
+}
+
+type namedString string
+type namedInt int
+type namedBool bool
+
+func TestField_SetNamedTypes(t *testing.T) {
+	type Config struct {
+		Duration    time.Duration
+		DurationPtr *time.Duration
+		String      namedString
+		Int         namedInt
+		IntPtr      *namedInt
+		Bool        namedBool
+		Plain       int64
+	}
+	storage, err := Get[Config]()
+	assert.NoError(t, err)
+
+	duration, number := 5*time.Second, namedInt(42)
+	conf := &Config{}
+	storage.MustFind("Duration").Set(conf, duration)
+	storage.MustFind("DurationPtr").Set(conf, &duration)
+	storage.MustFind("String").Set(conf, namedString("named"))
+	storage.MustFind("Int").Set(conf, number)
+	storage.MustFind("IntPtr").Set(conf, &number)
+	storage.MustFind("Bool").Set(conf, namedBool(true))
+	// value of the base type is still supported
+	storage.MustFind("Plain").Set(conf, int64(7))
+
+	assert.Equal(t, Config{
+		Duration:    duration,
+		DurationPtr: &duration,
+		String:      "named",
+		Int:         42,
+		IntPtr:      &number,
+		Bool:        true,
+		Plain:       7,
+	}, *conf)
+	assert.Same(t, &duration, conf.DurationPtr)
 }

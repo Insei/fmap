@@ -2,8 +2,10 @@ package fmap
 
 import (
 	"reflect"
+	"sync"
 	"testing"
 	"time"
+	"unsafe"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -294,5 +296,104 @@ func Test_storage_GetFieldByPtr(t *testing.T) {
 				t.Errorf("GetFieldByPtr() got = %v, want %v", got, tt.want)
 			}
 		})
+	}
+}
+
+func TestNestedStructFieldOffset(t *testing.T) {
+	type Inner struct {
+		At   time.Time
+		Name string
+	}
+	type Middle struct {
+		Pad   int64
+		Inner Inner
+		Deep  struct {
+			Pad   bool
+			Inner Inner
+		}
+	}
+	type Root struct {
+		Pad    string
+		First  Inner
+		Middle Middle
+	}
+	storage, err := Get[Root]()
+	assert.NoError(t, err)
+
+	root := &Root{}
+	offsets := map[string]uintptr{
+		"First":                unsafe.Offsetof(root.First),
+		"First.At":             unsafe.Offsetof(root.First) + unsafe.Offsetof(root.First.At),
+		"Middle":               unsafe.Offsetof(root.Middle),
+		"Middle.Inner":         unsafe.Offsetof(root.Middle) + unsafe.Offsetof(root.Middle.Inner),
+		"Middle.Inner.At":      unsafe.Offsetof(root.Middle) + unsafe.Offsetof(root.Middle.Inner) + unsafe.Offsetof(root.Middle.Inner.At),
+		"Middle.Inner.Name":    unsafe.Offsetof(root.Middle) + unsafe.Offsetof(root.Middle.Inner) + unsafe.Offsetof(root.Middle.Inner.Name),
+		"Middle.Deep":          unsafe.Offsetof(root.Middle) + unsafe.Offsetof(root.Middle.Deep),
+		"Middle.Deep.Inner":    unsafe.Offsetof(root.Middle) + unsafe.Offsetof(root.Middle.Deep) + unsafe.Offsetof(root.Middle.Deep.Inner),
+		"Middle.Deep.Inner.At": unsafe.Offsetof(root.Middle) + unsafe.Offsetof(root.Middle.Deep) + unsafe.Offsetof(root.Middle.Deep.Inner) + unsafe.Offsetof(root.Middle.Deep.Inner.At),
+	}
+	for path, offset := range offsets {
+		assert.Equal(t, offset, storage.MustFind(path).GetOffset(), path)
+	}
+
+	date := time.Date(2024, 1, 2, 3, 4, 5, 0, time.UTC)
+	// struct fields are set as a whole value
+	storage.MustFind("Middle.Inner.At").Set(root, date)
+	assert.Equal(t, date, root.Middle.Inner.At)
+	assert.Equal(t, date, storage.MustFind("Middle.Inner.At").Get(root))
+	assert.Same(t, &root.Middle.Inner.At, storage.MustFind("Middle.Inner.At").GetPtr(root))
+
+	storage.MustFind("Middle.Deep.Inner").Set(root, Inner{At: date, Name: "deep"})
+	assert.Equal(t, Inner{At: date, Name: "deep"}, root.Middle.Deep.Inner)
+	assert.Equal(t, Inner{At: date, Name: "deep"}, storage.MustFind("Middle.Deep.Inner").Get(root))
+
+	// other fields are not changed
+	assert.Equal(t, Root{Middle: Middle{
+		Inner: Inner{At: date},
+		Deep: struct {
+			Pad   bool
+			Inner Inner
+		}{Inner: Inner{At: date, Name: "deep"}},
+	}}, *root)
+
+	field, err := storage.GetFieldByPtr(root, &root.Middle.Deep.Inner.At)
+	assert.NoError(t, err)
+	assert.Equal(t, "Middle.Deep.Inner.At", field.GetStructPath())
+
+	// struct has the same offset as its first field
+	field, err = storage.GetFieldByPtr(root, &root.Middle.Deep.Inner)
+	assert.NoError(t, err)
+	assert.Equal(t, "Middle.Deep.Inner", field.GetStructPath())
+}
+
+func TestGetFrom_Concurrent(t *testing.T) {
+	type First struct {
+		Name *string
+		Sub  struct{ Value **int }
+	}
+	type Second struct{ First First }
+	type Third struct{ Second *Second }
+
+	var wg sync.WaitGroup
+	storages := make([]Storage, 16)
+	for i := range storages {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			for _, obj := range []any{&First{}, Second{}, &Third{}} {
+				storage, err := GetFrom(obj)
+				assert.NoError(t, err)
+				for _, path := range storage.GetAllPaths() {
+					field := storage.MustFind(path)
+					assert.NotEqual(t, reflect.Ptr, field.GetDereferencedType().Kind())
+				}
+			}
+			storages[i], _ = Get[First]()
+		}(i)
+	}
+	wg.Wait()
+	// all goroutines use the same storage
+	for _, storage := range storages {
+		assert.Same(t, storages[0], storage)
 	}
 }
