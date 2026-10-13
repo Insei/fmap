@@ -11,6 +11,9 @@ type field struct {
 	structPath      string
 	parent          *field
 	dereferenceType reflect.Type
+	// owner - the nearest field with the pointer to the struct, where the field is stored.
+	// Offset of the field is calculated from the beginning of that struct, nil if there are no pointers in the path.
+	owner *field
 }
 
 func newField(structField reflect.StructField, structPath string, parent *field) *field {
@@ -20,6 +23,11 @@ func newField(structField reflect.StructField, structPath string, parent *field)
 		parent:          parent,
 		dereferenceType: dereferenceType(structField.Type),
 	}
+}
+
+// isStructPtr checks that the type is a pointer to the struct, fields of such struct are available by the path.
+func isStructPtr(typeOf reflect.Type) bool {
+	return typeOf.Kind() == reflect.Ptr && typeOf.Elem().Kind() == reflect.Struct
 }
 
 func dereferenceType(typeOf reflect.Type) reflect.Type {
@@ -74,7 +82,12 @@ func (f *field) GetParent() Field {
 }
 
 func (f *field) GetPtr(obj interface{}) interface{} {
-	return reflect.NewAt(f.Type, f.getPtr(obj)).Interface()
+	ptrToField := f.getPtr(obj)
+	if ptrToField == nil {
+		// the struct with the field is not created, typed nil pointer is returned
+		return reflect.Zero(reflect.PtrTo(f.Type)).Interface()
+	}
+	return reflect.NewAt(f.Type, ptrToField).Interface()
 }
 
 // Get returns the value of the storage in the provided object.
@@ -82,6 +95,10 @@ func (f *field) GetPtr(obj interface{}) interface{} {
 // It returns the value of the storage as an `interface{}`.
 func (f *field) Get(obj interface{}) interface{} {
 	ptrToField := f.getPtr(obj)
+	if ptrToField == nil {
+		// the struct with the field is not created
+		return nil
+	}
 	kind := f.Type.Kind()
 	isPtr := false
 	if kind == reflect.Ptr {
@@ -184,11 +201,32 @@ func (f *field) GetTagPath(tag string, ignoreParentTagMissing bool) string {
 
 // getPtr returns a pointer to the field's value in the provided configuration object.
 // It takes a parameter `conf` of type `any`, representing the configuration object.
-// It returns an `unsafe.Pointer` to the `field's` value in the configuration object.
+// It returns an `unsafe.Pointer` to the `field's` value in the configuration object,
+// nil if the field is stored in the struct by the pointer and that pointer is nil.
 func (f *field) getPtr(obj interface{}) unsafe.Pointer {
 	confPointer := ((*[2]unsafe.Pointer)(unsafe.Pointer(&obj)))[1]
-	ptToField := unsafe.Add(confPointer, f.Offset)
-	return ptToField
+	return f.addr(confPointer, false)
+}
+
+// addr returns a pointer to the field's value in the object by the root pointer.
+// Nil pointers to the structs in the path are replaced with new structs if create is true, otherwise nil is returned.
+func (f *field) addr(root unsafe.Pointer, create bool) unsafe.Pointer {
+	if f.owner == nil {
+		return unsafe.Add(root, f.Offset)
+	}
+	ownerPtr := f.owner.addr(root, create)
+	if ownerPtr == nil {
+		return nil
+	}
+	structPtr := *(*unsafe.Pointer)(ownerPtr)
+	if structPtr == nil {
+		if !create {
+			return nil
+		}
+		structPtr = reflect.New(f.owner.Type.Elem()).UnsafePointer()
+		*(*unsafe.Pointer)(ownerPtr) = structPtr
+	}
+	return unsafe.Add(structPtr, f.Offset)
 }
 
 func setPtrValue[T any](ptr unsafe.Pointer, val any) {
@@ -215,7 +253,8 @@ func getPtrValue[T any](ptr unsafe.Pointer) T {
 // The supported storage types are string, int, and bool.
 // If the storage type is not one of the supported types, it panics with the message "unhandled default case".
 func (f *field) Set(obj interface{}, val interface{}) {
-	ptrToField := f.getPtr(obj)
+	// nil pointers to the structs in the path of the field are replaced with new structs
+	ptrToField := f.addr(((*[2]unsafe.Pointer)(unsafe.Pointer(&obj)))[1], true)
 	kind := f.Type.Kind()
 	isPtr := false
 	if kind == reflect.Ptr {

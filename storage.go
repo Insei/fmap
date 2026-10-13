@@ -59,7 +59,7 @@ func getFrom(typeOf reflect.Type) (Storage, error) {
 	count := new(int)
 	calculateFields(typeOf, count)
 	slice := make([]string, 0, *count)
-	getFieldsMapRecursive(typeOf, "", &tFields, &slice, 0)
+	getFieldsMapRecursive(typeOf, "", &tFields, &slice, 0, nil, []reflect.Type{typeOf.Elem()})
 
 	// storage can be already created by another goroutine, in this case the stored one is used
 	cached, _ := cache.LoadOrStore(typeOf, &storage{
@@ -81,7 +81,12 @@ func calculateFields(confTypeOf reflect.Type, count *int) {
 	}
 }
 
-func getFieldsMapRecursive(confTypeOf reflect.Type, path string, f *map[string]Field, s *[]string, offset uintptr) {
+// getFieldsMapRecursive fills the map and the slice with fields of the struct and all nested structs.
+//   - offset: offset of the struct from the root struct or from the struct of the owner.
+//   - owner: the nearest field with the pointer to the struct in the path, nil if there are no pointers.
+//   - visited: types of the structs in the path, recursive types are not traversed again.
+func getFieldsMapRecursive(confTypeOf reflect.Type, path string, f *map[string]Field, s *[]string, offset uintptr,
+	owner *field, visited []reflect.Type) {
 	if confTypeOf.Kind() == reflect.Ptr {
 		confTypeOf = confTypeOf.Elem()
 	}
@@ -95,21 +100,34 @@ func getFieldsMapRecursive(confTypeOf reflect.Type, path string, f *map[string]F
 			parentPath := path[:len(path)-1]
 			parent, _ = (*f)[parentPath].(*field)
 		}
-		switch fieldTypeOf.Type.Kind() {
-		case reflect.Struct:
-			fld := newField(fieldTypeOf, path+fieldTypeOf.Name, parent)
-			// offset from the root struct, not from the parent
-			fld.Offset = fld.Offset + offset
-			(*f)[path+fieldTypeOf.Name] = fld
-			*s = append(*s, fld.structPath)
-			getFieldsMapRecursive(fieldTypeOf.Type, path+fieldTypeOf.Name, f, s, fld.Offset)
-		default:
-			fld := newField(fieldTypeOf, path+fieldTypeOf.Name, parent)
-			fld.Offset = fld.Offset + offset
-			*s = append(*s, fld.structPath)
-			(*f)[path+fieldTypeOf.Name] = fld
+		fld := newField(fieldTypeOf, path+fieldTypeOf.Name, parent)
+		// offset from the root struct or from the struct of the owner, not from the parent
+		fld.Offset = fld.Offset + offset
+		fld.owner = owner
+		(*f)[fld.structPath] = fld
+		*s = append(*s, fld.structPath)
+
+		structType := fld.dereferenceType
+		if isVisited(visited, structType) {
+			continue
+		}
+		switch {
+		case fieldTypeOf.Type.Kind() == reflect.Struct:
+			getFieldsMapRecursive(structType, fld.structPath, f, s, fld.Offset, owner, append(visited, structType))
+		case isStructPtr(fieldTypeOf.Type):
+			// struct is stored in another place of the memory, offsets of its fields are calculated from its beginning
+			getFieldsMapRecursive(structType, fld.structPath, f, s, 0, fld, append(visited, structType))
 		}
 	}
+}
+
+func isVisited(visited []reflect.Type, typeOf reflect.Type) bool {
+	for _, v := range visited {
+		if v == typeOf {
+			return true
+		}
+	}
+	return false
 }
 
 func (s *storage) GetFieldByPtr(structPtr, fieldPtr any) (Field, error) {
@@ -130,14 +148,15 @@ func (s *storage) GetFieldByPtr(structPtr, fieldPtr any) (Field, error) {
 
 	fPtr := ((*[2]unsafe.Pointer)(unsafe.Pointer(&fieldPtr)))[1]
 	sPtr := ((*[2]unsafe.Pointer)(unsafe.Pointer(&structPtr)))[1]
-	offset := uintptr(fPtr) - uintptr(sPtr)
 
-	// struct and its first field has the same offset, so the field with the same type is preferred
+	// struct and its first field has the same address, so the field with the same type is preferred
 	var matchKind Field
 	for _, path := range s.GetAllPaths() {
-		fld := s.MustFind(path)
+		fld := s.asMap[path].(*field)
 
-		if fld.GetOffset() != offset {
+		// fields of the structs stored by the pointer have no constant offset from the struct, addresses are compared
+		// nil is the field of the struct that is not created
+		if addr := fld.addr(sPtr, false); addr == nil || addr != fPtr {
 			continue
 		}
 
