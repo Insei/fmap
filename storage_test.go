@@ -366,6 +366,26 @@ func TestNestedStructFieldOffset(t *testing.T) {
 	assert.Equal(t, "Middle.Deep.Inner", field.GetStructPath())
 }
 
+func TestGetFieldByPtr_SameKind(t *testing.T) {
+	type Level int
+	type Config struct {
+		Pad   bool
+		Level Level
+	}
+	conf := &Config{}
+	storage, err := GetFrom(conf)
+	assert.NoError(t, err)
+
+	// pointer to the underlying type of the field, only kind is matched
+	field, err := storage.GetFieldByPtr(conf, (*int)(unsafe.Pointer(&conf.Level)))
+	assert.NoError(t, err)
+	assert.Equal(t, "Level", field.GetStructPath())
+
+	// field with another kind at the same offset is not matched
+	_, err = storage.GetFieldByPtr(conf, (*uint)(unsafe.Pointer(&conf.Level)))
+	assert.Error(t, err)
+}
+
 func TestGetFrom_Concurrent(t *testing.T) {
 	type First struct {
 		Name *string
