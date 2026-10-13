@@ -138,6 +138,37 @@ func main() {
 
 More examples in `field_test.go`, like slice fields, nested structs, pointers etc.
 
+## Structs stored by pointer
+Fields of the struct stored by pointer are available by the path, like fields of the struct stored by value:
+```go
+type TLS struct {
+	Cert string
+}
+
+type Server struct {
+	Host string
+	TLS  *TLS
+}
+
+type Config struct {
+	Backup *Server
+}
+
+func main() {
+	conf := &Config{}
+	fields, _ := fmap.GetFrom(conf) // paths: Backup, Backup.Host, Backup.TLS, Backup.TLS.Cert
+	cert := fields.MustFind("Backup.TLS.Cert")
+	cert.Get(conf)                  // nil, conf.Backup is nil and it is not changed
+	cert.Set(conf, "/etc/cert.pem") // conf.Backup and conf.Backup.TLS are created
+	cert.Get(conf)                  // "/etc/cert.pem"
+}
+```
+* `Get` returns nil and `GetPtr` returns typed nil pointer if the struct of the field is not created, the object is not changed.
+* `Set` creates all structs in the path of the field.
+* `GetOffset` returns the offset from the start of the struct stored by pointer, not from the root struct.
+* Recursive types are not traversed again: `type Node struct { Next *Node }` has only the `Next` field.
+* Only single pointers are traversed, `**Struct` is a field without nested fields.
+
 # Benchmarks
 `fmap.GetFrom(obj any) map[string]Field`
 ```

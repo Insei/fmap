@@ -14,6 +14,8 @@ type Storage interface {
 	MustFind(path string) Field
 
 	// GetAllPaths returns a slice containing all paths of fields in the struct ordered like field struct definition.
+	// Fields of nested structs are included, both for structs stored by value and by pointer.
+	// Recursive types are not traversed again, the field with such type has no nested fields.
 	GetAllPaths() []string
 
 	GetFieldByPtr(structPtr, fieldPtr any) (Field, error)
@@ -33,6 +35,7 @@ type Field interface {
 	GetTag() reflect.StructTag
 
 	// GetOffset returns the offset of the field in memory relative to the start of the struct.
+	// For the field of the struct stored by the pointer, it is the offset from the start of that struct.
 	GetOffset() uintptr
 
 	// GetIndex returns the index of the field within its containing struct as a slice of integers.
@@ -47,17 +50,21 @@ type Field interface {
 	// Get returns the value of the storage in the provided object.
 	// It takes a parameter `obj` of type `interface{}`, representing the object.
 	// It returns the value of the storage as an `interface{}`.
+	// If the field is in the struct stored by the pointer and that pointer is nil, it returns nil.
 	Get(obj any) any
 
 	// GetPtr returns the pointer to the field's value in the provided object.
 	// It takes a parameter `obj` of type `any`, representing the pointer to object.
 	// It returns the pointer to the field's value as an `any`.
+	// If the field is in the struct stored by the pointer and that pointer is nil, it returns typed nil pointer,
+	// the object is not changed.
 	GetPtr(obj any) any
 
 	// Set updates the value of the storage in the provided object with the provided value.
 	// It takes two parameters:
 	//   - obj: interface{}, representing the object pointer containing the field.
 	//   - val: interface{}, representing the new value for the field.
+	// If the field is in the struct stored by the pointer and that pointer is nil, the new struct is created.
 	Set(obj any, val any)
 
 	// GetStructPath returns the struct path of the field.
