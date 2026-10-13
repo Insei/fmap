@@ -8,10 +8,8 @@ import (
 	"unsafe"
 )
 
-var (
-	cache   = map[reflect.Type]Storage{}
-	cacheMu sync.RWMutex
-)
+// cache - storages by the struct type, reflect.Type -> Storage
+var cache sync.Map
 
 // Get returns a map of field objects.
 // It takes a parameter `T` of type `any`, representing the type to be used for Fields map creation.
@@ -54,11 +52,8 @@ func getFrom(typeOf reflect.Type) (Storage, error) {
 		(typeOf.Kind() == reflect.Pointer && typeOf.Elem().Kind() != reflect.Struct) {
 		return nil, fmt.Errorf("not supported type: %v, only struct and ptr to struct is supported", typeOf)
 	}
-	cacheMu.RLock()
-	cached, ok := cache[typeOf]
-	cacheMu.RUnlock()
-	if ok {
-		return cached, nil
+	if cached, ok := cache.Load(typeOf); ok {
+		return cached.(Storage), nil
 	}
 	tFields := map[string]Field{}
 	count := new(int)
@@ -66,17 +61,12 @@ func getFrom(typeOf reflect.Type) (Storage, error) {
 	slice := make([]string, 0, *count)
 	getFieldsMapRecursive(typeOf, "", &tFields, &slice, 0)
 
-	cacheMu.Lock()
-	defer cacheMu.Unlock()
-	// storage can be already created by another goroutine
-	if cached, ok = cache[typeOf]; ok {
-		return cached, nil
-	}
-	cache[typeOf] = &storage{
+	// storage can be already created by another goroutine, in this case the stored one is used
+	cached, _ := cache.LoadOrStore(typeOf, &storage{
 		asMap: tFields,
 		paths: slice,
-	}
-	return cache[typeOf], nil
+	})
+	return cached.(Storage), nil
 }
 
 func calculateFields(confTypeOf reflect.Type, count *int) {
