@@ -539,3 +539,60 @@ func TestField_SetNamedTypes(t *testing.T) {
 	}, *conf)
 	assert.Same(t, &duration, conf.DurationPtr)
 }
+
+type tagPathCommon struct {
+	Port int `json:"port" yaml:"port"`
+}
+
+type tagPathDeep struct {
+	tagPathCommon
+	Level string `json:"level" yaml:"level"`
+}
+
+type tagPathConfig struct {
+	tagPathCommon
+	HTTP struct {
+		*tagPathDeep
+		Host string `json:"host" yaml:"host"`
+	} `json:"http" yaml:"http"`
+	Named struct {
+		tagPathCommon `json:"common" yaml:",inline"`
+	} `json:"named" yaml:"named"`
+	NoTag struct {
+		tagPathCommon
+	}
+}
+
+func TestField_GetTagPath_Embedded(t *testing.T) {
+	storage, err := Get[tagPathConfig]()
+	if err != nil {
+		t.Fatal(err)
+	}
+	tests := []struct {
+		path            string
+		tag             string
+		ignoreParentTag bool
+		want            string
+	}{
+		// fields of the embedded structs are on the level of the embedding struct
+		{"tagPathCommon.Port", "json", false, "port"},
+		{"HTTP.tagPathDeep.Level", "json", false, "http.level"},
+		// embedded into embedded, stored by pointer
+		{"HTTP.tagPathDeep.tagPathCommon.Port", "json", false, "http.port"},
+		{"HTTP.tagPathDeep.tagPathCommon.Port", "json", true, "http.port"},
+		// the name in the tag of the embedded struct is used
+		{"Named.tagPathCommon.Port", "json", false, "named.common.port"},
+		// the tag without the name, inline for example, is transparent too
+		{"Named.tagPathCommon.Port", "yaml", false, "named.port"},
+		// the named parent without the tag is missing
+		{"NoTag.tagPathCommon.Port", "json", false, ""},
+		{"NoTag.tagPathCommon.Port", "json", true, "port"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.path+" "+tt.tag, func(t *testing.T) {
+			if got := storage.MustFind(tt.path).GetTagPath(tt.tag, tt.ignoreParentTag); got != tt.want {
+				t.Errorf("field.GetTagPath() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}

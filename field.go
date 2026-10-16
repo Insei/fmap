@@ -175,21 +175,26 @@ func (f *field) Get(obj interface{}) interface{} {
 	}
 }
 
+// tagName returns the name from the tag value, the part before the comma: json:"name,omitempty" -> name.
+func (f *field) tagName(tag string) string {
+	return strings.Split(f.Tag.Get(tag), ",")[0]
+}
+
 func (f *field) GetTagPath(tag string, ignoreParentTagMissing bool) string {
-	tagPath := ""
-	if val, ok := f.Tag.Lookup(tag); ok {
-		vals := strings.Split(val, ",")
-		if len(vals) > 0 && len(vals[0]) > 0 {
-			tagPath = vals[0]
-		}
-	}
+	tagPath := f.tagName(tag)
 	if tagPath == "" {
 		return tagPath
 	}
-	if f.parent == nil {
+	// embedded structs without the name in the tag are transparent, their fields are on the level of the embedding struct,
+	// like in encoding/json and the most of the encoding libraries; yaml:",inline" has no name too
+	parent := f.parent
+	for parent != nil && parent.Anonymous && parent.tagName(tag) == "" {
+		parent = parent.parent
+	}
+	if parent == nil {
 		return tagPath
 	}
-	parentTag := f.parent.GetTagPath(tag, ignoreParentTagMissing)
+	parentTag := parent.GetTagPath(tag, ignoreParentTagMissing)
 	if parentTag == "" && !ignoreParentTagMissing {
 		return ""
 	}

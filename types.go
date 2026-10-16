@@ -76,6 +76,8 @@ type Field interface {
 	//   - tag: string, representing the tag name.
 	//   - ignoreParentTagMissing: bool, representing whether to ignore the missing parent tags or not.
 	// It returns the tag value path as a string.
+	// Embedded structs without the name in the tag are transparent: their fields are on the level of the embedding struct,
+	// like in encoding/json, so they are not missing parents.
 	GetTagPath(tag string, ignoreParentTagMissing bool) string
 
 	// GetParent returns the parent field of the current field, if not exist return nil.
